@@ -1,52 +1,43 @@
-# automatically enable catch2 to generate ctest targets
-if(CONAN_CATCH2_ROOT_DEBUG)
-  include(${CONAN_CATCH2_ROOT_DEBUG}/lib/cmake/Catch2/Catch.cmake)
-else()
-  include(${CONAN_CATCH2_ROOT}/lib/cmake/Catch2/Catch.cmake)
-endif()
 
-add_library(catch_main STATIC catch_main.cpp)
-target_link_libraries(catch_main PUBLIC CONAN_PKG::catch2)
-target_link_libraries(catch_main PRIVATE project_options)
 
-add_executable(tests tests.cpp)
-target_link_libraries(tests PRIVATE project_warnings project_options catch_main)
+add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
 
-# automatically discover tests that are defined in catch based test files you can modify the unittests. TEST_PREFIX to
-# whatever you want, or use different for different binaries
-catch_discover_tests(
-  tests
-  TEST_PREFIX
-  "unittests."
-  EXTRA_ARGS
-  -s
-  --reporter=xml
-  --out=tests.xml)
+set(INSTALL_GTEST OFF)
+set(BUILD_GMOCK OFF)
 
-# Add a file containing a set of constexpr tests
-add_executable(constexpr_tests constexpr_tests.cpp)
-target_link_libraries(constexpr_tests PRIVATE project_options project_warnings catch_main)
+mark_as_advanced(
+    # BUILD_GMOCK BUILD_GTEST BUILD_SHARED_LIBS
+    BUILD_GTEST BUILD_SHARED_LIBS
+    # gmock_build_tests gtest_build_samples gtest_build_tests
+    gtest_disable_pthreads gtest_force_shared_crt gtest_hide_internal_symbols
+)
 
-catch_discover_tests(
-  constexpr_tests
-  TEST_PREFIX
-  "constexpr."
-  EXTRA_ARGS
-  -s
-  --reporter=xml
-  --out=constexpr.xml)
+set_target_properties(gtest PROPERTIES FOLDER extern)
+set_target_properties(gtest_main PROPERTIES FOLDER extern)
 
-# Disable the constexpr portion of the test, and build again this allows us to have an executable that we can debug when
-# things go wrong with the constexpr testing
-add_executable(relaxed_constexpr_tests constexpr_tests.cpp)
-target_link_libraries(relaxed_constexpr_tests PRIVATE project_options project_warnings catch_main)
-target_compile_definitions(relaxed_constexpr_tests PRIVATE -DCATCH_CONFIG_RUNTIME_STATIC_REQUIRE)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
-catch_discover_tests(
-  relaxed_constexpr_tests
-  TEST_PREFIX
-  "relaxed_constexpr."
-  EXTRA_ARGS
-  -s
-  --reporter=xml
-  --out=relaxed_constexpr.xml)
+macro(package_add_test TESTNAME)
+    add_executable(${TESTNAME} ${ARGN})
+    
+    # link the Google test infrastructure, mocking library, and a default main fuction to
+    # the test executable.  Remove g_test_main if writing your own main function.
+    target_link_libraries(${TESTNAME} PRIVATE project_options project_warnings
+    gtest gtest_main
+    
+    )
+    
+    # gtest_discover_tests replaces gtest_add_tests,
+    gtest_discover_tests(${TESTNAME}
+        # set a working directory so your project root so that you can find test data via paths relative to the project root
+        WORKING_DIRECTORY ${PROJECT_DIR}
+        PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_DIR}"
+    )
+    set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
+endmacro()              
+
+include_directories(${PROJECT_SOURCE_DIR}/src)
+
+include_directories(${PROJECT_SOURCE_DIR}/extern/googletest/googletest/include)
+
+package_add_test(tests tests.cc)

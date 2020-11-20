@@ -32,3 +32,11 @@ if(ENABLE_IPO)
     message(SEND_ERROR "IPO is not supported: ${output}")
   endif()
 endif()
+
+# fmt library
+message(STATUS "Using fmt")
+include_directories("${PROJECT_SOURCE_DIR}/extern/fmt/include")
+set(FMT_LIBRARY_DIRS "${PROJECT_SOURCE_DIR}/extern/fmt/include")
+set(FMT_LIBRARIES fmt)
+
+set(CLI11_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/extern/CLI11/include")
